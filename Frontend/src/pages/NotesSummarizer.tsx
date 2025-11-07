@@ -1,14 +1,17 @@
 import { useState, useRef } from 'react';
-import { Upload, FileText, BookOpen, Download, Copy } from 'lucide-react';
+import { Upload, FileText, Download, Copy, BookText } from 'lucide-react';
 
 const NotesSummarizer = () => {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
+  const [textInput, setTextInput] = useState('');
   const [summary, setSummary] = useState<string[]>([]);
   const [flashcards, setFlashcards] = useState<Array<{question: string, answer: string}>>([]);
-  const [keyPoints, setKeyPoints] = useState<string[]>([]);
+  const [glossary, setGlossary] = useState<Array<{term: string, definition: string}>>([]);
+  const [conceptMap, setConceptMap] = useState<Array<{parent: string, children: string[]}>>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('summary');
+  const [inputType, setInputType] = useState('pdf'); // 'pdf' or 'text'
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -16,10 +19,22 @@ const NotesSummarizer = () => {
     if (selectedFile) {
       setFile(selectedFile);
       setFileName(selectedFile.name);
+      setTextInput('');
       setSummary([]);
       setFlashcards([]);
-      setKeyPoints([]);
+      setGlossary([]);
+      setConceptMap([]);
     }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setTextInput(e.target.value);
+    setFile(null);
+    setFileName('');
+    setSummary([]);
+    setFlashcards([]);
+    setGlossary([]);
+    setConceptMap([]);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -32,43 +47,60 @@ const NotesSummarizer = () => {
     if (droppedFile && droppedFile.type === 'application/pdf') {
       setFile(droppedFile);
       setFileName(droppedFile.name);
+      setTextInput('');
       setSummary([]);
       setFlashcards([]);
-      setKeyPoints([]);
+      setGlossary([]);
+      setConceptMap([]);
     }
   };
 
-  const processFile = () => {
-    if (!file) return;
-    
+  const handleSummarize = async () => {
+    if (!file && !textInput) {
+      return;
+    }
+
     setIsProcessing(true);
-    
-    setTimeout(() => {
-      setSummary([
-        "The water cycle is a continuous process that involves evaporation, condensation, and precipitation.",
-        "Evaporation occurs when water changes from liquid to gas due to heat from the sun.",
-        "Condensation happens when water vapor cools and turns back into liquid droplets.",
-        "Precipitation includes rain, snow, sleet, and hail that falls from clouds to the Earth's surface.",
-        "The cycle is essential for distributing water across the planet and supporting life."
-      ]);
-      
-      setFlashcards([
-        { question: "What are the three main stages of the water cycle?", answer: "Evaporation, condensation, and precipitation." },
-        { question: "What causes evaporation in the water cycle?", answer: "Heat from the sun changes water from liquid to gas." },
-        { question: "What is condensation in the water cycle?", answer: "When water vapor cools and turns back into liquid droplets." },
-        { question: "What forms of precipitation are mentioned?", answer: "Rain, snow, sleet, and hail." }
-      ]);
-      
-      setKeyPoints([
-        "Water cycle is essential for distributing water across the planet",
-        "Evaporation is caused by solar heat",
-        "Condensation forms clouds",
-        "Precipitation returns water to Earth's surface",
-        "The cycle supports all life on Earth"
-      ]);
-      
+    setSummary([]);
+    setFlashcards([]);
+    setGlossary([]);
+    setConceptMap([]);
+
+    let response;
+    try {
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        response = await fetch('http://localhost:5000/summarize', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        response = await fetch('http://localhost:5000/summarize', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ notes_text: textInput }),
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to summarize.');
+      }
+
+      const data = await response.json();
+      const result = JSON.parse(data.result.raw_output.replace(/```json\n|```/g, ''));
+      setSummary(result.summary || []);
+      setFlashcards(result.flashcards || []);
+      setGlossary(result.glossary || []);
+      setConceptMap(result.concept_map || []);
+    } catch (error) {
+      console.error('Error summarizing:', error);
+      // Handle error state in UI, e.g., show a notification
+    } finally {
       setIsProcessing(false);
-    }, 2000);
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -97,9 +129,9 @@ const NotesSummarizer = () => {
     downloadContent(content, 'flashcards.txt');
   };
 
-  const downloadKeyPoints = () => {
-    const content = keyPoints.join('\n');
-    downloadContent(content, 'key-points.txt');
+  const downloadGlossary = () => {
+    const content = glossary.map(g => `${g.term}: ${g.definition}`).join('\n');
+    downloadContent(content, 'glossary.txt');
   };
 
   return (
@@ -107,36 +139,60 @@ const NotesSummarizer = () => {
       <h1 className="text-3xl font-bold text-[#1C1C1C] mb-6">Notes Summarizer</h1>
       
       <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">Upload Your Notes</h2>
-        
-        <div 
-          className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-[#E63946] transition-colors"
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-lg font-medium text-gray-700 mb-2">
-            {fileName ? fileName : 'Drag & drop your PDF file here'}
-          </p>
-          <p className="text-gray-500 mb-4">or</p>
-          <button className="bg-[#E63946] text-white py-2 px-6 rounded-lg hover:bg-[#d32f3f] transition-colors">
-            Browse Files
+        <div className="flex border-b border-gray-200 mb-6">
+          <button
+            className={`py-3 px-6 font-medium flex items-center gap-2 ${inputType === 'pdf' ? 'text-[#E63946] border-b-2 border-[#E63946]' : 'text-gray-500'}`}
+            onClick={() => setInputType('pdf')}
+          >
+            <Upload className="w-5 h-5" />
+            Upload PDF
           </button>
-          <p className="text-sm text-gray-500 mt-4">Supports PDF files up to 10MB</p>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".pdf"
-            className="hidden"
-          />
+          <button
+            className={`py-3 px-6 font-medium flex items-center gap-2 ${inputType === 'text' ? 'text-[#E63946] border-b-2 border-[#E63946]' : 'text-gray-500'}`}
+            onClick={() => setInputType('text')}
+          >
+            <BookText className="w-5 h-5" />
+            Paste Text
+          </button>
         </div>
+
+        {inputType === 'pdf' ? (
+          <div 
+            className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-[#E63946] transition-colors"
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-700 mb-2">
+              {fileName ? fileName : 'Drag & drop your PDF file here'}
+            </p>
+            <p className="text-gray-500 mb-4">or</p>
+            <button className="bg-[#E63946] text-white py-2 px-6 rounded-lg hover:bg-[#d32f3f] transition-colors">
+              Browse Files
+            </button>
+            <p className="text-sm text-gray-500 mt-4">Supports PDF files up to 10MB</p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".pdf"
+              className="hidden"
+            />
+          </div>
+        ) : (
+          <textarea
+            value={textInput}
+            onChange={handleTextChange}
+            placeholder="Paste your notes here..."
+            className="w-full h-48 border-2 border-gray-300 rounded-xl p-4 focus:outline-none focus:border-[#E63946] transition-colors"
+          />
+        )}
         
-        {file && (
+        {(file || textInput) && (
           <div className="mt-6 flex justify-center">
             <button
-              onClick={processFile}
+              onClick={handleSummarize}
               disabled={isProcessing}
               className="bg-[#E63946] text-white py-3 px-8 rounded-lg hover:bg-[#d32f3f] transition-colors font-semibold flex items-center gap-2 disabled:opacity-50"
             >
@@ -156,7 +212,7 @@ const NotesSummarizer = () => {
         )}
       </div>
       
-      {(summary.length > 0 || flashcards.length > 0 || keyPoints.length > 0) && (
+      {(summary.length > 0 || flashcards.length > 0 || glossary.length > 0) && (
         <div className="bg-white rounded-2xl shadow-md p-6">
           <div className="flex border-b border-gray-200 mb-6">
             <button
@@ -172,10 +228,16 @@ const NotesSummarizer = () => {
               Flashcards
             </button>
             <button
-              className={`py-3 px-6 font-medium ${activeTab === 'keypoints' ? 'text-[#E63946] border-b-2 border-[#E63946]' : 'text-gray-500'}`}
-              onClick={() => setActiveTab('keypoints')}
+              className={`py-3 px-6 font-medium ${activeTab === 'glossary' ? 'text-[#E63946] border-b-2 border-[#E63946]' : 'text-gray-500'}`}
+              onClick={() => setActiveTab('glossary')}
             >
-              Key Points
+              Glossary
+            </button>
+            <button
+              className={`py-3 px-6 font-medium ${activeTab === 'concept-map' ? 'text-[#E63946] border-b-2 border-[#E63946]' : 'text-gray-500'}`}
+              onClick={() => setActiveTab('concept-map')}
+            >
+              Concept Map
             </button>
           </div>
           
@@ -236,12 +298,12 @@ const NotesSummarizer = () => {
             </div>
           )}
           
-          {activeTab === 'keypoints' && (
+          {activeTab === 'glossary' && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Key Points</h3>
+                <h3 className="text-lg font-semibold">Glossary</h3>
                 <button
-                  onClick={downloadKeyPoints}
+                  onClick={downloadGlossary}
                   className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#E63946]"
                 >
                   <Download className="w-4 h-4" />
@@ -249,9 +311,31 @@ const NotesSummarizer = () => {
                 </button>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
-                <ul className="list-disc pl-5 space-y-2">
-                  {keyPoints.map((point, index) => (
-                    <li key={index} className="text-gray-700">{point}</li>
+              <ul className="list-disc pl-5 space-y-2">
+                  {glossary.map((item, index) => (
+                    <li key={index} className="text-gray-700"><strong>{item.term}:</strong> {item.definition}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'concept-map' && (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Concept Map</h3>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+              <ul className="list-disc pl-5 space-y-2">
+                  {conceptMap.map((item, index) => (
+                    <li key={index} className="text-gray-700">
+                      <strong>{item.parent}</strong>
+                      <ul className="list-disc pl-5 space-y-2">
+                        {item.children.map((child, i) => (
+                          <li key={i}>{child}</li>
+                        ))}
+                      </ul>
+                    </li>
                   ))}
                 </ul>
               </div>

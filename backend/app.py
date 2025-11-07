@@ -1,15 +1,33 @@
 from flask import Flask, jsonify, request, send_from_directory
 from controllers.generate_controller import generate_assets
+import requests
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers.add("Access-Control-Allow-Origin", "http://localhost:5173")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-    response.headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-    response.headers.add("Access-Control-Allow-Credentials", "true")
-    return response
+@app.route("/summarize", methods=["POST"])
+def summarize():
+    summarizer_url = "https://pdf-summarizer-service-1.onrender.com/summarize_notes"
+    
+    try:
+        if 'file' in request.files:
+            files = {'file': (request.files['file'].filename, request.files['file'].stream, request.files['file'].mimetype)}
+            response = requests.post(summarizer_url, files=files)
+            response.raise_for_status()
+            return jsonify(response.json()), response.status_code
+
+        elif request.is_json:
+            data = request.get_json()
+            # The external service expects multipart/form-data for both file and text
+            files = {'notes_text': (None, data.get('notes_text'))}
+            response = requests.post(summarizer_url, files=files)
+            response.raise_for_status()
+            return jsonify(response.json()), response.status_code
+            
+        return jsonify({"error": "Invalid request"}), 400
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Error contacting summarizer service: {e}"}), 500
 
 @app.route("/generate", methods=["OPTIONS"])
 def handle_options():
