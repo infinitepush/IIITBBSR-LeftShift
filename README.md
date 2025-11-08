@@ -1,7 +1,6 @@
 # 🎓 ShikshaFLow
 ### AI-Powered Platform to Instantly Create and Animate Educational Materials
 
-![EduBuilder AI Preview](./assets/preview.png)
 
 ---
 
@@ -133,14 +132,6 @@ Phase Two introduces:
 | 🗂 Media Engine | MoviePy + gTTS + FFmpeg |
 | ☁ Deployment | Render / Vercel |
 | 📦 Storage | S3-compatible bucket / Local FS |
-
----
-
-## 🖼 App Preview  
-
-| Sidebar Navigation | Lecture Generator | Animation Studio |
-|--------------------|-------------------|------------------|
-| ![Sidebar](./assets/sidebar.png) | ![Lecture Gen](./assets/generate.png) | ![Animation](./assets/animation.png) |
 
 ---
 
