@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Download, Video, FileText, RefreshCw } from 'lucide-react';
 import { mockQuestions } from '../utils/mockData';
-
+import InteractiveBubbleSort from '../components/InteractiveBubbleSort';
 const GenerateLecture = () => {
   const [topic, setTopic] = useState('');
   const [audience, setAudience] = useState('High School');
@@ -293,6 +293,7 @@ const GenerateLecture = () => {
               </motion.div>
             </div>
 
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -398,6 +399,7 @@ const GenerateLecture = () => {
             >
               Generate New Lecture
             </button>
+            <InteractiveBubbleSort />
           </motion.div>
         )}
       </AnimatePresence>
