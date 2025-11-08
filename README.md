@@ -1,4 +1,4 @@
-# 🎓 EduBuilder AI  
+# 🎓 ShikshaFLow
 ### AI-Powered Platform to Instantly Create and Animate Educational Materials
 
 ![EduBuilder AI Preview](./assets/preview.png)
